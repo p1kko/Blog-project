@@ -5,6 +5,7 @@ import { registerValidation } from "./validations/auth.js";
 import { validationResult } from "express-validator";
 import UserModel from "./models/User.js";
 import bcrypt from "bcrypt";
+import checkAuth from "./utils/checkAuth.js";
 
 mongoose
   .connect(
@@ -21,6 +22,58 @@ const app = express();
 
 app.use(express.json());
 
+
+
+
+// Login user-------------------------------------------------------------------------------------
+app.post("/auth/login", async (req, res) => {
+  try {
+    const user = await UserModel.findOne({ email: req.body.email });
+
+    if (!user) {
+      return res.status(400).json({
+        message: "User not found",
+      });
+    }
+
+    const isValidPass = await bcrypt.compare(
+      req.body.password,
+      user._doc.passwordHash
+    );
+
+    if (!isValidPass) {
+      return res.status(404).json({
+        message: "Invalid login or password",
+      });
+    }
+
+    const token = jwt.sign(
+      {
+        _id: user._id,
+      },
+      "secret123",
+      {
+        expiresIn: "30d",
+      }
+    );
+
+    const { passwordHash, ...userData } = user._doc;
+
+    res.json({
+      ...userData,
+      token,
+    });
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({
+      message: "Log in failed!",
+    });
+  }
+});
+
+
+
+// Register user ---------------------------------------------------------------------------------------
 app.post("/auth/register", registerValidation, async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -50,7 +103,7 @@ app.post("/auth/register", registerValidation, async (req, res) => {
       }
     );
 
-    const {passwordHash, ...userData} = user._doc
+    const { passwordHash, ...userData } = user._doc;
 
     res.json({
       ...userData,
@@ -63,6 +116,18 @@ app.post("/auth/register", registerValidation, async (req, res) => {
     });
   }
 });
+
+// Check authorization ------------------------------------------------------------
+
+app.get("/auth/me", checkAuth, (req,res)=>{
+    try {
+        
+    } catch (err) {
+        
+    }
+})
+
+// Server listener ----------------------------------------------------
 
 app.listen(4444, (err) => {
   if (err) {
