@@ -1,11 +1,9 @@
 import express from "express";
-import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
-import { registerValidation } from "./validations/auth.js";
-import { validationResult } from "express-validator";
-import UserModel from "./models/User.js";
-import bcrypt from "bcrypt";
+import { registerValidation, loginValidation } from "./validations.js";
 import checkAuth from "./utils/checkAuth.js";
+import { getMe, login, register } from "./constrollers/UserController.js";
+import { create } from "./constrollers/PostController.js";
 
 mongoose
   .connect(
@@ -26,106 +24,16 @@ app.use(express.json());
 
 
 // Login user-------------------------------------------------------------------------------------
-app.post("/auth/login", async (req, res) => {
-  try {
-    const user = await UserModel.findOne({ email: req.body.email });
-
-    if (!user) {
-      return res.status(400).json({
-        message: "User not found",
-      });
-    }
-
-    const isValidPass = await bcrypt.compare(
-      req.body.password,
-      user._doc.passwordHash
-    );
-
-    if (!isValidPass) {
-      return res.status(404).json({
-        message: "Invalid login or password",
-      });
-    }
-
-    const token = jwt.sign(
-      {
-        _id: user._id,
-      },
-      "secret123",
-      {
-        expiresIn: "30d",
-      }
-    );
-
-    const { passwordHash, ...userData } = user._doc;
-
-    res.json({
-      ...userData,
-      token,
-    });
-  } catch (err) {
-    console.log(err);
-    res.status(500).json({
-      message: "Log in failed!",
-    });
-  }
-});
+app.post("/auth/login", loginValidation, login);
 
 
 
 // Register user ---------------------------------------------------------------------------------------
-app.post("/auth/register", registerValidation, async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json(errors.array());
-    }
-
-    const password = req.body.password;
-    const salt = await bcrypt.genSalt(10);
-    const hash = await bcrypt.hash(password, salt);
-
-    const doc = new UserModel({
-      email: req.body.email,
-      fullName: req.body.fullName,
-      passwordHash: hash,
-    });
-
-    const user = await doc.save();
-
-    const token = jwt.sign(
-      {
-        _id: user._id,
-      },
-      "secret123",
-      {
-        expiresIn: "30d",
-      }
-    );
-
-    const { passwordHash, ...userData } = user._doc;
-
-    res.json({
-      ...userData,
-      token,
-    });
-  } catch (err) {
-    console.log(err);
-    res.status(500).json({
-      message: "Registration failed!",
-    });
-  }
-});
+app.post("/auth/register", registerValidation, register);
 
 // Check authorization ------------------------------------------------------------
 
-app.get("/auth/me", checkAuth, (req,res)=>{
-    try {
-        
-    } catch (err) {
-        
-    }
-})
+app.get("/auth/me", checkAuth, getMe)
 
 // Server listener ----------------------------------------------------
 
